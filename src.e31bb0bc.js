@@ -120,4 +120,4 @@ var o,e=arguments[3];!function(n){var r="object"==typeof exports&&exports&&!expo
 },{"./shapes":"Drda","./helpers":"XEZX"}],"Focm":[function(require,module,exports) {
 "use strict";require("./style.css");var e=require("./controller"),r=require("./model"),i=require("./view"),s=new r.PixiShapesModel,l=new i.PixiShapesView(s),t=new e.PixiShapesController(l,s);t.startGame();
 },{"./style.css":"iMte","./controller":"Bqsu","./model":"QSAe","./view":"wxwQ"}]},{},["Focm"], null)
-//# sourceMappingURL=Pixi-shapes/src.e31bb0bc.js.map
+//# sourceMappingURL=src.e31bb0bc.js.map

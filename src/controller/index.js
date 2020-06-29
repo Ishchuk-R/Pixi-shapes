@@ -7,23 +7,36 @@ export class PixiShapesController {
   }
 
   startGame(){
-    this.createScene();
+    this.view.createScene();
     this.playGame();
 
 
-    /*Handle random click */
-    this.model.app.addEventListener('dblclick', (e) => {
-    const randomShape = this.view.createRandomShape(e.offsetX, e.offsetY);
-    this.model.countShapes++;
-    this.model.areaShapes += randomShape.area;
-    this.view.showInfoShape();
-    this.model.shapes.push(randomShape);
-    this.model.pixiScene.stage.addChild(randomShape);
+    /*Сreate container for click */
+    const container = new PIXI.Container();
+    container.hitArea = new PIXI.Rectangle(0, 0, this.model.pixiSceneWidth, this.model.pixiSceneHeight);
+    container.interactive = true;
+    this.model.pixiScene.stage.addChild(container);
 
+    /*position relative to the figure */
+     const posiitonApp = this.model.app.getBoundingClientRect();
+
+   
+    container.on('click', (e) => {
+      /*determine the coordinates of the center of the random figure*/
+      const centerX = e.data.originalEvent.clientX - posiitonApp.x;
+      const centerY = e.data.originalEvent.clientY - posiitonApp.y;
+      const randomShape = this.view.createRandomShape(centerX, centerY);
+      this.model.countShapes++;
+      this.model.areaShapes += randomShape.area;
+      this.view.showInfoShape();
+      this.model.shapes.push(randomShape);
+      console.log(randomShape)
+      this.model.pixiScene.stage.addChild(randomShape);
       /*Delete random shape click */
-      randomShape.on('click', (e) => {
-        this.view.removeShape(randomShape)
+      randomShape.on('click', (e) => { 
         e.stopPropagation();
+        this.view.removeShape(randomShape);
+        this.view.changeColor(randomShape);
       });
     });
 
@@ -39,15 +52,7 @@ export class PixiShapesController {
     });
   }
 
-  createScene(){
-    this.model.pixiScene = new PIXI.Application({
-      width: this.model.pixiSceneWidth,
-      height: this.model.pixiSceneHeight,
-      backgroundColor: 0xC3C3C3,
-      resolution: 1
-    });
-    this.model.app.appendChild(this.model.pixiScene.view);
-  }
+
 
   createGame(){
     for (let i = 0; i < this.model.generatedPerSec; i++){
@@ -60,21 +65,22 @@ export class PixiShapesController {
       shape.on('click', (e) => {
         e.stopPropagation();
         this.view.removeShape(shape);
+        this.view.changeColor(shape);
       });
     }
   }
 
   playGame(){
-    this.createGame();
-    setInterval(() => {   
-      this.createGame();
-     }, this.model.interval);
-    
-     
+    let i = 0;
+    const step = () => {
+      if (++i % this.model.interval == 0) this.createGame();
+      requestAnimationFrame(step);
+     }
+     step();
     this.model.pixiScene.ticker.add(() => {
       this.model.shapes.map(s => {
         s.y += this.model.gravity;
-        if (s.y >= this.model.pixiSceneHeight + s.h) {
+        if (s.y >= this.model.pixiSceneHeight + s.heigth/2) {
           this.view.removeShape(s);
         }
       })

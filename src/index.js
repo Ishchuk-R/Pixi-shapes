@@ -1,6 +1,7 @@
-import {PixiShapesController} from './controller/'
-import {PixiShapesModel} from './model/'
-import {PixiShapesView} from './view/'
+import './style.css'
+import {PixiShapesController} from './controller'
+import {PixiShapesModel} from './model'
+import {PixiShapesView} from './view'
 
 const model = new PixiShapesModel();
 const view  = new PixiShapesView(model);

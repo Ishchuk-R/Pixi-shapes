@@ -117,7 +117,79 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"../node_modules/es6-promise-polyfill/promise.js":[function(require,module,exports) {
+})({"../node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+var bundleURL = null;
+
+function getBundleURLCached() {
+  if (!bundleURL) {
+    bundleURL = getBundleURL();
+  }
+
+  return bundleURL;
+}
+
+function getBundleURL() {
+  // Attempt to find the URL of the current script and use that as the base URL
+  try {
+    throw new Error();
+  } catch (err) {
+    var matches = ('' + err.stack).match(/(https?|file|ftp|chrome-extension|moz-extension):\/\/[^)\n]+/g);
+
+    if (matches) {
+      return getBaseURL(matches[0]);
+    }
+  }
+
+  return '/';
+}
+
+function getBaseURL(url) {
+  return ('' + url).replace(/^((?:https?|file|ftp|chrome-extension|moz-extension):\/\/.+)\/[^/]+$/, '$1') + '/';
+}
+
+exports.getBundleURL = getBundleURLCached;
+exports.getBaseURL = getBaseURL;
+},{}],"../node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
+var bundle = require('./bundle-url');
+
+function updateLink(link) {
+  var newLink = link.cloneNode();
+
+  newLink.onload = function () {
+    link.remove();
+  };
+
+  newLink.href = link.href.split('?')[0] + '?' + Date.now();
+  link.parentNode.insertBefore(newLink, link.nextSibling);
+}
+
+var cssTimeout = null;
+
+function reloadCSS() {
+  if (cssTimeout) {
+    return;
+  }
+
+  cssTimeout = setTimeout(function () {
+    var links = document.querySelectorAll('link[rel="stylesheet"]');
+
+    for (var i = 0; i < links.length; i++) {
+      if (bundle.getBaseURL(links[i].href) === bundle.getBundleURL()) {
+        updateLink(links[i]);
+      }
+    }
+
+    cssTimeout = null;
+  }, 50);
+}
+
+module.exports = reloadCSS;
+},{"./bundle-url":"../node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"style.css":[function(require,module,exports) {
+var reloadCSS = require('_css_loader');
+
+module.hot.dispose(reloadCSS);
+module.hot.accept(reloadCSS);
+},{"_css_loader":"../node_modules/parcel-bundler/src/builtins/css-loader.js"}],"../node_modules/es6-promise-polyfill/promise.js":[function(require,module,exports) {
 var global = arguments[3];
 var define;
 (function(global){
@@ -48299,12 +48371,23 @@ var PixiShapesController = /*#__PURE__*/function () {
     value: function startGame() {
       var _this = this;
 
-      this.createScene();
+      this.view.createScene();
       this.playGame();
-      /*Handle random click */
+      /*Сreate container for click */
 
-      this.model.app.addEventListener('dblclick', function (e) {
-        var randomShape = _this.view.createRandomShape(e.offsetX, e.offsetY);
+      var container = new PIXI.Container();
+      container.hitArea = new PIXI.Rectangle(0, 0, this.model.pixiSceneWidth, this.model.pixiSceneHeight);
+      container.interactive = true;
+      this.model.pixiScene.stage.addChild(container);
+      /*position relative to the figure */
+
+      var posiitonApp = this.model.app.getBoundingClientRect();
+      container.on('click', function (e) {
+        /*determine the coordinates of the center of the random figure*/
+        var centerX = e.data.originalEvent.clientX - posiitonApp.x;
+        var centerY = e.data.originalEvent.clientY - posiitonApp.y;
+
+        var randomShape = _this.view.createRandomShape(centerX, centerY);
 
         _this.model.countShapes++;
         _this.model.areaShapes += randomShape.area;
@@ -48313,14 +48396,18 @@ var PixiShapesController = /*#__PURE__*/function () {
 
         _this.model.shapes.push(randomShape);
 
+        console.log(randomShape);
+
         _this.model.pixiScene.stage.addChild(randomShape);
         /*Delete random shape click */
 
 
         randomShape.on('click', function (e) {
+          e.stopPropagation();
+
           _this.view.removeShape(randomShape);
 
-          e.stopPropagation();
+          _this.view.changeColor(randomShape);
         });
       });
       /*Change gravity value  */
@@ -48333,17 +48420,6 @@ var PixiShapesController = /*#__PURE__*/function () {
       this.model.generatedButton.addEventListener('click', function (e) {
         _this.model.generatedPerSec = +e.target.value;
       });
-    }
-  }, {
-    key: "createScene",
-    value: function createScene() {
-      this.model.pixiScene = new PIXI.Application({
-        width: this.model.pixiSceneWidth,
-        height: this.model.pixiSceneHeight,
-        backgroundColor: 0xC3C3C3,
-        resolution: 1
-      });
-      this.model.app.appendChild(this.model.pixiScene.view);
     }
   }, {
     key: "createGame",
@@ -48366,6 +48442,8 @@ var PixiShapesController = /*#__PURE__*/function () {
           e.stopPropagation();
 
           _this2.view.removeShape(shape);
+
+          _this2.view.changeColor(shape);
         });
       };
 
@@ -48378,15 +48456,19 @@ var PixiShapesController = /*#__PURE__*/function () {
     value: function playGame() {
       var _this3 = this;
 
-      this.createGame();
-      setInterval(function () {
-        _this3.createGame();
-      }, this.model.interval);
+      var i = 0;
+
+      var step = function step() {
+        if (++i % _this3.model.interval == 0) _this3.createGame();
+        requestAnimationFrame(step);
+      };
+
+      step();
       this.model.pixiScene.ticker.add(function () {
         _this3.model.shapes.map(function (s) {
           s.y += _this3.model.gravity;
 
-          if (s.y >= _this3.model.pixiSceneHeight + s.h) {
+          if (s.y >= _this3.model.pixiSceneHeight + s.heigth / 2) {
             _this3.view.removeShape(s);
           }
         });
@@ -48429,7 +48511,7 @@ var PixiShapesModel = function PixiShapesModel() {
 
   _defineProperty(this, "pixiSceneHeight", 400);
 
-  _defineProperty(this, "interval", 1000);
+  _defineProperty(this, "interval", 100);
 
   _defineProperty(this, "shapes", []);
 
@@ -48450,7 +48532,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.getRandomColor = getRandomColor;
-exports.random = void 0;
+exports.polygonArea = exports.random = void 0;
 
 var random = function random(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
@@ -48468,21 +48550,6 @@ function getRandomColor() {
 
   return color;
 }
-},{}],"view/shapes.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.newShape = void 0;
-
-var PIXI = _interopRequireWildcard(require("pixi.js"));
-
-var _helpers = require("./helpers");
-
-function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
-
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 var polygonArea = function polygonArea(points) {
   var couplePoint = [];
@@ -48503,72 +48570,486 @@ var polygonArea = function polygonArea(points) {
   return Math.round(area /= 2);
 };
 
-var minWidth = 25,
-    maxWidth = 100,
-    minHeight = 25,
-    maxHeight = 100;
+exports.polygonArea = polygonArea;
+},{}],"view/shapes/shape.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Shape = void 0;
+
+var _helpers = require("../helpers");
+
+var PIXI = _interopRequireWildcard(require("pixi.js"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Shape = /*#__PURE__*/function (_PIXI$Graphics) {
+  _inherits(Shape, _PIXI$Graphics);
+
+  var _super = _createSuper(Shape);
+
+  function Shape(x, y) {
+    var _this;
+
+    _classCallCheck(this, Shape);
+
+    _this = _super.call(this);
+
+    _this.beginFill((0, _helpers.getRandomColor)());
+
+    _this.tint = (0, _helpers.getRandomColor)();
+    _this.heigth = 100;
+    _this.x = x;
+    _this.y = y ? y : -100;
+    _this.interactive = true;
+    _this.buttonMode = true;
+    return _this;
+  }
+
+  _createClass(Shape, [{
+    key: "calculateArea",
+    value: function calculateArea() {}
+  }]);
+
+  return Shape;
+}(PIXI.Graphics);
+
+exports.Shape = Shape;
+},{"../helpers":"view/helpers.js","pixi.js":"../node_modules/pixi.js/lib/pixi.es.js"}],"view/shapes/circle.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Circle = void 0;
+
+var _shape = require("./shape");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Circle = /*#__PURE__*/function (_Shape) {
+  _inherits(Circle, _Shape);
+
+  var _super = _createSuper(Circle);
+
+  function Circle(x, y, radius) {
+    var _this;
+
+    _classCallCheck(this, Circle);
+
+    _this = _super.call(this, x, y);
+    _this.radius = radius;
+    _this.type = 'circle';
+    _this.y = y ? y : -radius;
+    _this.heigth = radius * 2;
+
+    _this.drawCircle(0, 0, radius);
+
+    _this.area = Math.round(Math.PI * Math.pow(_this.radius, 2));
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Circle;
+}(_shape.Shape);
+
+exports.Circle = Circle;
+},{"./shape":"view/shapes/shape.js"}],"view/shapes/rectangle.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Rectangle = void 0;
+
+var _shape = require("./shape");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Rectangle = /*#__PURE__*/function (_Shape) {
+  _inherits(Rectangle, _Shape);
+
+  var _super = _createSuper(Rectangle);
+
+  function Rectangle(x, y, width, height) {
+    var _this;
+
+    _classCallCheck(this, Rectangle);
+
+    _this = _super.call(this, x, y);
+    _this.y = y ? y : -height / 2;
+    _this.heigth = height;
+    _this.type = 'rectangle';
+
+    _this.drawRect(0 - width / 2, 0 - height / 2, width, height);
+
+    _this.area = Math.round(_this.width * _this.height);
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Rectangle;
+}(_shape.Shape);
+
+exports.Rectangle = Rectangle;
+},{"./shape":"view/shapes/shape.js"}],"view/shapes/elipse.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Elipse = void 0;
+
+var _shape = require("./shape");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Elipse = /*#__PURE__*/function (_Shape) {
+  _inherits(Elipse, _Shape);
+
+  var _super = _createSuper(Elipse);
+
+  function Elipse(x, y, width, height) {
+    var _this;
+
+    _classCallCheck(this, Elipse);
+
+    _this = _super.call(this, x, y);
+    _this.y = y ? y : -height / 2;
+    _this.heigth = height;
+    _this.type = 'elipse';
+
+    _this.drawEllipse(0, 0, width, height);
+
+    _this.area = Math.round(Math.PI * _this.width / 2 * _this.height / 2);
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Elipse;
+}(_shape.Shape);
+
+exports.Elipse = Elipse;
+},{"./shape":"view/shapes/shape.js"}],"view/shapes/triangle.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Triangle = void 0;
+
+var _shape = require("./shape");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Triangle = /*#__PURE__*/function (_Shape) {
+  _inherits(Triangle, _Shape);
+
+  var _super = _createSuper(Triangle);
+
+  function Triangle(x, y, randomWidth, randomHeight) {
+    var _this;
+
+    _classCallCheck(this, Triangle);
+
+    _this = _super.call(this, x, y);
+    _this.randomWidth = randomWidth;
+    _this.randomHeight = randomHeight;
+    _this.y = y ? y : -randomHeight;
+    _this.type = 'triangle';
+    _this.side3Point = [0, -randomHeight / 2, -randomWidth, randomHeight, randomWidth / 2, randomHeight / 2];
+
+    _this.drawPolygon(_this.side3Point);
+
+    _this.area = Math.round(1 / 2 * _this.randomWidth * _this.randomHeight * Math.sin(_this.randomWidth / _this.randomHeight));
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Triangle;
+}(_shape.Shape);
+
+exports.Triangle = Triangle;
+},{"./shape":"view/shapes/shape.js"}],"view/shapes/sides5shape.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Side5shape = void 0;
+
+var _shape = require("./shape");
+
+var _helpers = require("../helpers");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Side5shape = /*#__PURE__*/function (_Shape) {
+  _inherits(Side5shape, _Shape);
+
+  var _super = _createSuper(Side5shape);
+
+  function Side5shape(x, y, point) {
+    var _this;
+
+    _classCallCheck(this, Side5shape);
+
+    _this = _super.call(this, x, y);
+    _this.type = 'side5shape';
+
+    _this.drawPolygon(point);
+
+    _this.area = (0, _helpers.polygonArea)(point);
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Side5shape;
+}(_shape.Shape);
+
+exports.Side5shape = Side5shape;
+},{"./shape":"view/shapes/shape.js","../helpers":"view/helpers.js"}],"view/shapes/sides6shape.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Side6shape = void 0;
+
+var _shape = require("./shape");
+
+var _helpers = require("../helpers");
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
+
+function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = _getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = _getPrototypeOf(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return _possibleConstructorReturn(this, result); }; }
+
+function _possibleConstructorReturn(self, call) { if (call && (_typeof(call) === "object" || typeof call === "function")) { return call; } return _assertThisInitialized(self); }
+
+function _assertThisInitialized(self) { if (self === void 0) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return self; }
+
+function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct) return false; if (Reflect.construct.sham) return false; if (typeof Proxy === "function") return true; try { Date.prototype.toString.call(Reflect.construct(Date, [], function () {})); return true; } catch (e) { return false; } }
+
+function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
+
+var Side6shape = /*#__PURE__*/function (_Shape) {
+  _inherits(Side6shape, _Shape);
+
+  var _super = _createSuper(Side6shape);
+
+  function Side6shape(x, y, point) {
+    var _this;
+
+    _classCallCheck(this, Side6shape);
+
+    _this = _super.call(this, x, y);
+    _this.type = 'side6shape';
+
+    _this.drawPolygon(point);
+
+    _this.area = (0, _helpers.polygonArea)(point);
+
+    _this.endFill();
+
+    return _this;
+  }
+
+  return Side6shape;
+}(_shape.Shape);
+
+exports.Side6shape = Side6shape;
+},{"./shape":"view/shapes/shape.js","../helpers":"view/helpers.js"}],"view/shapes.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.newShape = void 0;
+
+var PIXI = _interopRequireWildcard(require("pixi.js"));
+
+var _helpers = require("./helpers");
+
+var _circle = require("./shapes/circle");
+
+var _rectangle = require("./shapes/rectangle");
+
+var _elipse = require("./shapes/elipse");
+
+var _triangle = require("./shapes/triangle");
+
+var _sides5shape = require("./shapes/sides5shape");
+
+var _sides6shape = require("./shapes/sides6shape");
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 var newShape = function newShape(number) {
   var x = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : (0, _helpers.random)(0, 800);
-  var y = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : -maxHeight;
-  var typeShape = ['circle', 'rect', 'elipse', '3sides', '5sides', '6sides'];
+  var y = arguments.length > 2 ? arguments[2] : undefined;
+  var minWidth = 25,
+      maxWidth = 100,
+      minHeight = 25,
+      maxHeight = 100;
+  var side5Point = [(0, _helpers.random)(maxWidth / 3, maxWidth * 2 / 3), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth * 2 / 3, maxWidth), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3), (0, _helpers.random)(maxWidth / 2, maxWidth), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 2), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 3), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3)];
+  var side6Point = [(0, _helpers.random)(maxWidth / 4, maxWidth / 2), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth / 2, maxWidth * 3 / 4), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth * 3 / 4, maxWidth), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3), (0, _helpers.random)(maxWidth / 2, maxWidth * 3 / 4), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(maxWidth / 4, maxWidth / 2), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 3), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3)];
+  var typeShape = ['circle', 'rect', 'elipse', 'triangle', 'sides5', 'sides6'];
   var type = typeShape[number];
   var randomWidth = (0, _helpers.random)(minWidth, maxWidth);
   var randomHeight = (0, _helpers.random)(minHeight, maxHeight);
-  var side3Point = [(0, _helpers.random)(0, maxWidth), (0, _helpers.random)(0, maxHeight), (0, _helpers.random)(maxWidth / 2, maxWidth), (0, _helpers.random)(maxHeight / 2, maxHeight), (0, _helpers.random)(0, maxWidth / 2), (0, _helpers.random)(maxHeight / 2, maxHeight)];
-  var side5Point = [(0, _helpers.random)(maxWidth / 3, maxWidth * 2 / 3), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth * 2 / 3, maxWidth), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3), (0, _helpers.random)(maxWidth / 2, maxWidth), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 2), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 3), (0, _helpers.random)(maxWidth / 3, maxHeight * 2 / 3)];
-  var side6Point = [(0, _helpers.random)(maxWidth / 4, maxWidth / 2), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth / 2, maxWidth * 3 / 4), (0, _helpers.random)(0, maxHeight / 3), (0, _helpers.random)(maxWidth * 3 / 4, maxWidth), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3), (0, _helpers.random)(maxWidth / 2, maxWidth * 3 / 4), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(maxWidth / 4, maxWidth / 2), (0, _helpers.random)(maxHeight * 2 / 3, maxHeight), (0, _helpers.random)(0, maxWidth / 3), (0, _helpers.random)(maxHeight / 3, maxHeight * 2 / 3)];
   var graphics = new PIXI.Graphics();
-  graphics.beginFill((0, _helpers.getRandomColor)());
-  graphics.h = randomHeight / 2;
+  graphics.clear();
 
   switch (type) {
     case 'circle':
-      graphics.drawCircle(0, 0, graphics.h);
-      graphics.area = Math.round(Math.PI * Math.pow(graphics.h, 2));
-      break;
+      return new _circle.Circle(x, y, randomWidth);
 
     case 'rect':
-      graphics.drawRect(0, 0, randomWidth, randomHeight);
-      graphics.area = randomWidth * randomHeight;
-      break;
+      return new _rectangle.Rectangle(x, y, randomWidth, randomHeight);
 
     case 'elipse':
-      graphics.drawEllipse(0, 0, randomWidth / 2, randomHeight / 2);
-      graphics.area = Math.round(Math.PI * randomWidth * randomHeight);
-      break;
+      return new _elipse.Elipse(x, y, randomWidth, randomHeight);
 
-    case '3sides':
-      graphics.drawPolygon(side3Point);
-      graphics.area = polygonArea(side3Point);
-      break;
+    case 'triangle':
+      return new _triangle.Triangle(x, y, randomWidth, randomHeight);
 
-    case '5sides':
-      graphics.drawPolygon(side5Point);
-      graphics.area = polygonArea(side5Point);
-      break;
+    case 'sides5':
+      return new _sides5shape.Side5shape(x, y, side5Point);
 
-    case '6sides':
-      graphics.drawPolygon(side6Point);
-      graphics.area = polygonArea(side6Point);
-      break;
+    case 'sides6':
+      return new _sides6shape.Side6shape(x, y, side6Point);
 
     default:
-      graphics.drawCircle(0, 0, graphics.h);
-      graphics.area = Math.round(Math.PI * Math.pow(graphics.h, 2));
-      break;
+      return new _circle.Circle(x, y, randomWidth);
   }
-
-  graphics.endFill();
-  graphics.x = x;
-  graphics.y = y;
-  graphics.interactive = true;
-  graphics.buttonMode = true;
-  return graphics;
 };
 
 exports.newShape = newShape;
-},{"pixi.js":"../node_modules/pixi.js/lib/pixi.es.js","./helpers":"view/helpers.js"}],"view/index.js":[function(require,module,exports) {
+},{"pixi.js":"../node_modules/pixi.js/lib/pixi.es.js","./helpers":"view/helpers.js","./shapes/circle":"view/shapes/circle.js","./shapes/rectangle":"view/shapes/rectangle.js","./shapes/elipse":"view/shapes/elipse.js","./shapes/triangle":"view/shapes/triangle.js","./shapes/sides5shape":"view/shapes/sides5shape.js","./shapes/sides6shape":"view/shapes/sides6shape.js"}],"view/index.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -48576,9 +49057,15 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.PixiShapesView = void 0;
 
+var PIXI = _interopRequireWildcard(require("pixi.js"));
+
 var _shapes = require("./shapes");
 
 var _helpers = require("./helpers");
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -48594,14 +49081,34 @@ var PixiShapesView = /*#__PURE__*/function () {
   }
 
   _createClass(PixiShapesView, [{
+    key: "createScene",
+    value: function createScene() {
+      this.model.pixiScene = new PIXI.Application({
+        width: this.model.pixiSceneWidth,
+        height: this.model.pixiSceneHeight,
+        backgroundColor: 0xC3C3C3,
+        resolution: 1
+      });
+      this.model.app.appendChild(this.model.pixiScene.view);
+    }
+  }, {
     key: "createShape",
     value: function createShape() {
-      return (0, _shapes.newShape)((0, _helpers.random)(1, 6));
+      return (0, _shapes.newShape)((0, _helpers.random)(0, 6));
     }
   }, {
     key: "createRandomShape",
     value: function createRandomShape(x, y) {
-      return (0, _shapes.newShape)((0, _helpers.random)(0, 3), x, y);
+      return (0, _shapes.newShape)((0, _helpers.random)(0, 4), x, y);
+    }
+  }, {
+    key: "changeColor",
+    value: function changeColor(shape) {
+      for (var i = 0; i < this.model.shapes.length; i++) {
+        if (shape.type == this.model.shapes[i].type) {
+          this.model.shapes[i].tint = shape.tint;
+        }
+      }
     }
   }, {
     key: "removeShape",
@@ -48628,20 +49135,22 @@ var PixiShapesView = /*#__PURE__*/function () {
 }();
 
 exports.PixiShapesView = PixiShapesView;
-},{"./shapes":"view/shapes.js","./helpers":"view/helpers.js"}],"index.js":[function(require,module,exports) {
+},{"pixi.js":"../node_modules/pixi.js/lib/pixi.es.js","./shapes":"view/shapes.js","./helpers":"view/helpers.js"}],"index.js":[function(require,module,exports) {
 "use strict";
 
-var _controller = require("./controller/");
+require("./style.css");
 
-var _model = require("./model/");
+var _controller = require("./controller");
 
-var _view = require("./view/");
+var _model = require("./model");
+
+var _view = require("./view");
 
 var model = new _model.PixiShapesModel();
 var view = new _view.PixiShapesView(model);
 var controller = new _controller.PixiShapesController(view, model);
 controller.startGame();
-},{"./controller/":"controller/index.js","./model/":"model/index.js","./view/":"view/index.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"./style.css":"style.css","./controller":"controller/index.js","./model":"model/index.js","./view":"view/index.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -48669,7 +49178,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "7761" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "12361" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

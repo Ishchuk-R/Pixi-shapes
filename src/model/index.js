@@ -9,7 +9,7 @@ export class PixiShapesModel {
   gravityButton = document.querySelector("#gravity");
   pixiSceneWidth = 800;
   pixiSceneHeight = 400;
-  interval = 1000;
+  interval = 100;
   /* --- */
 
   shapes = [];

@@ -30,7 +30,6 @@ export class PixiShapesController {
       this.model.areaShapes += randomShape.area;
       this.view.showInfoShape();
       this.model.shapes.push(randomShape);
-      console.log(randomShape)
       this.model.pixiScene.stage.addChild(randomShape);
       /*Delete random shape click */
       randomShape.on('click', (e) => { 

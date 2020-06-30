@@ -48396,8 +48396,6 @@ var PixiShapesController = /*#__PURE__*/function () {
 
         _this.model.shapes.push(randomShape);
 
-        console.log(randomShape);
-
         _this.model.pixiScene.stage.addChild(randomShape);
         /*Delete random shape click */
 
@@ -48511,7 +48509,7 @@ var PixiShapesModel = function PixiShapesModel() {
 
   _defineProperty(this, "pixiSceneHeight", 400);
 
-  _defineProperty(this, "interval", 100);
+  _defineProperty(this, "interval", 60);
 
   _defineProperty(this, "shapes", []);
 
@@ -49178,7 +49176,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "12361" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "2574" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

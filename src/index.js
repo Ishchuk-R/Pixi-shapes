@@ -8,3 +8,4 @@ const view  = new PixiShapesView(model);
 const controller = new PixiShapesController(view, model);
 
 controller.startGame();
+

@@ -48373,17 +48373,21 @@ var PixiShapesController = /*#__PURE__*/function () {
 
       this.view.createScene();
       this.playGame();
+      window.addEventListener('resize', function () {
+        _this.playGame();
+      });
       /*Сreate container for click */
 
       var container = new PIXI.Container();
       container.hitArea = new PIXI.Rectangle(0, 0, this.model.pixiSceneWidth, this.model.pixiSceneHeight);
       container.interactive = true;
       this.model.pixiScene.stage.addChild(container);
-      /*position relative to the figure */
-
-      var posiitonApp = this.model.app.getBoundingClientRect();
       container.on('click', function (e) {
+        /*position relative to the figure */
+        var posiitonApp = _this.model.app.getBoundingClientRect();
         /*determine the coordinates of the center of the random figure*/
+
+
         var centerX = e.data.originalEvent.clientX - posiitonApp.x;
         var centerY = e.data.originalEvent.clientY - posiitonApp.y;
 
@@ -49116,6 +49120,7 @@ var PixiShapesView = /*#__PURE__*/function () {
       this.model.areaShapes -= shape.area;
       this.showInfoShape();
       var idx = this.model.shapes.indexOf(shape);
+      this.model.pixiScene.stage.removeChild(shape);
 
       if (idx > -1) {
         this.model.shapes.splice(idx, 1);
@@ -49176,7 +49181,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "2574" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "31536" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

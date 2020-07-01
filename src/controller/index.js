@@ -9,6 +9,9 @@ export class PixiShapesController {
   startGame(){
     this.view.createScene();
     this.playGame();
+    window.addEventListener('resize', () => {
+      this.playGame();
+    })
 
 
     /*Сreate container for click */
@@ -16,12 +19,10 @@ export class PixiShapesController {
     container.hitArea = new PIXI.Rectangle(0, 0, this.model.pixiSceneWidth, this.model.pixiSceneHeight);
     container.interactive = true;
     this.model.pixiScene.stage.addChild(container);
-
-    /*position relative to the figure */
-     const posiitonApp = this.model.app.getBoundingClientRect();
-
    
     container.on('click', (e) => {
+      /*position relative to the figure */
+      const posiitonApp = this.model.app.getBoundingClientRect();
       /*determine the coordinates of the center of the random figure*/
       const centerX = e.data.originalEvent.clientX - posiitonApp.x;
       const centerY = e.data.originalEvent.clientY - posiitonApp.y;
@@ -51,8 +52,6 @@ export class PixiShapesController {
     });
   }
 
-
-
   createGame(){
     for (let i = 0; i < this.model.generatedPerSec; i++){
       const shape = this.view.createShape();
@@ -70,12 +69,14 @@ export class PixiShapesController {
   }
 
   playGame(){
+  
+
     let i = 0;
     const step = () => {
       if (++i % this.model.interval == 0) this.createGame();
       requestAnimationFrame(step);
-     }
-     step();
+    }
+    step();
     this.model.pixiScene.ticker.add(() => {
       this.model.shapes.map(s => {
         s.y += this.model.gravity;

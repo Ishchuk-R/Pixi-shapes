@@ -42,6 +42,7 @@ export class PixiShapesView {
     this.model.areaShapes -= shape.area;
     this.showInfoShape();
     const idx = this.model.shapes.indexOf(shape);
+    this.model.pixiScene.stage.removeChild(shape);
     if (idx > -1) {
       this.model.shapes.splice(idx, 1);
     }
